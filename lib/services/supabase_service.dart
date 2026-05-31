@@ -4,7 +4,7 @@ import 'dart:math';
 class SupabaseService {
   static final _client = Supabase.instance.client;
   static const _baseUrl =
-      'https://yourdomain.com'; // replace with your Vercel domain later
+      'https://unlinkd.vercel.app/'; // replace with your Vercel domain later
 
   static String _generateCode(int length) {
     const chars =
