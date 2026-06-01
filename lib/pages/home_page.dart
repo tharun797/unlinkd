@@ -46,15 +46,34 @@ class _HomePageState extends State<HomePage> {
       _shortUrl = null;
     });
 
+    // try {
+    //   final shortUrl = await SupabaseService.shortenUrl(url);
+    //   await Clipboard.setData(ClipboardData(text: shortUrl));
+    //   setState(() => _shortUrl = shortUrl);
+    // } catch (e) {
+    //   setState(() => _errorMessage = 'Something went wrong. Try again.');
+    // } finally {
+    //   setState(() => _isLoading = false);
+    // }
+
     try {
-      final shortUrl = await SupabaseService.shortenUrl(url);
-      await Clipboard.setData(ClipboardData(text: shortUrl));
-      setState(() => _shortUrl = shortUrl);
-    } catch (e) {
-      setState(() => _errorMessage = 'Something went wrong. Try again.');
-    } finally {
-      setState(() => _isLoading = false);
-    }
+  final shortUrl = await SupabaseService.shortenUrl(url);
+  setState(() {
+    _shortUrl = shortUrl;
+    _urlController.clear();
+  });
+  
+  // Separate try/catch so clipboard failure doesn't affect the result
+  try {
+    await Clipboard.setData(ClipboardData(text: shortUrl));
+  } catch (_) {
+    // Safari blocks auto-copy, that's fine
+  }
+} catch (e) {
+  setState(() => _errorMessage = 'Something went wrong. Try again.');
+} finally {
+  setState(() => _isLoading = false);
+}
   }
 
   @override
