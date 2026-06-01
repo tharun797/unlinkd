@@ -25,7 +25,7 @@ class SupabaseService {
       'original_url': originalUrl,
     });
 
-    return '$_baseUrl/$code';
+    return '$_baseUrl/#$code';
   }
 
   /// Looks up the original URL from a short code
