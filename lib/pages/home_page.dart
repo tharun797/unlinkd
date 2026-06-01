@@ -15,17 +15,18 @@ class _HomePageState extends State<HomePage> {
   bool _isLoading = false;
   String? _shortUrl;
   String? _errorMessage;
+  bool _copied = false;
 
   Widget _blob(double size, Color color, double opacity) => Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      gradient: RadialGradient(
-        colors: [color.withOpacity(opacity), Colors.transparent],
-      ),
-    ),
-  );
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [color.withOpacity(opacity), Colors.transparent],
+          ),
+        ),
+      );
 
   Future<void> _handleShorten() async {
     final url = _urlController.text.trim();
@@ -35,7 +36,8 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    if (!Uri.tryParse(url)!.hasScheme ?? true) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
       setState(() => _errorMessage = 'Please enter a valid URL.');
       return;
     }
@@ -44,36 +46,30 @@ class _HomePageState extends State<HomePage> {
       _isLoading = true;
       _errorMessage = null;
       _shortUrl = null;
+      _copied = false;
     });
 
-    // try {
-    //   final shortUrl = await SupabaseService.shortenUrl(url);
-    //   await Clipboard.setData(ClipboardData(text: shortUrl));
-    //   setState(() => _shortUrl = shortUrl);
-    // } catch (e) {
-    //   setState(() => _errorMessage = 'Something went wrong. Try again.');
-    // } finally {
-    //   setState(() => _isLoading = false);
-    // }
-
     try {
-  final shortUrl = await SupabaseService.shortenUrl(url);
-  setState(() {
-    _shortUrl = shortUrl;
-    _urlController.clear();
-  });
-  
-  // Separate try/catch so clipboard failure doesn't affect the result
-  try {
-    await Clipboard.setData(ClipboardData(text: shortUrl));
-  } catch (_) {
-    // Safari blocks auto-copy, that's fine
-  }
-} catch (e) {
-  setState(() => _errorMessage = 'Something went wrong. Try again.');
-} finally {
-  setState(() => _isLoading = false);
-}
+      final shortUrl = await SupabaseService.shortenUrl(url);
+      setState(() {
+        _shortUrl = shortUrl;
+        _urlController.clear();
+      });
+
+      try {
+        await Clipboard.setData(ClipboardData(text: shortUrl));
+        setState(() => _copied = true);
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) setState(() => _copied = false);
+        });
+      } catch (_) {
+        // Safari blocks auto-copy, user can tap Copy manually
+      }
+    } catch (e) {
+      setState(() => _errorMessage = 'Something went wrong. Try again.');
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -122,7 +118,8 @@ class _HomePageState extends State<HomePage> {
               child: _blob(200, const Color(0xFF833AB4), 0.10),
             ),
             Container(
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.05)),
+              decoration:
+                  BoxDecoration(color: Colors.white.withOpacity(0.05)),
             ),
             SizedBox.expand(
               child: Column(
@@ -163,7 +160,8 @@ class _HomePageState extends State<HomePage> {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF833AB4).withOpacity(0.08),
+                              color:
+                                  const Color(0xFF833AB4).withOpacity(0.08),
                               blurRadius: 32,
                               offset: const Offset(0, 8),
                             ),
@@ -196,6 +194,7 @@ class _HomePageState extends State<HomePage> {
                                 onChanged: (_) => setState(() {
                                   _errorMessage = null;
                                   _shortUrl = null;
+                                  _copied = false;
                                 }),
                                 decoration: InputDecoration(
                                   hintText: 'Paste your link here...',
@@ -205,19 +204,18 @@ class _HomePageState extends State<HomePage> {
                                   ),
                                   border: InputBorder.none,
                                   isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
+                                  contentPadding:
+                                      const EdgeInsets.symmetric(vertical: 14),
                                 ),
                               ),
                             ),
-                            // Clear button
                             if (_urlController.text.isNotEmpty)
                               GestureDetector(
                                 onTap: () => setState(() {
                                   _urlController.clear();
                                   _shortUrl = null;
                                   _errorMessage = null;
+                                  _copied = false;
                                 }),
                                 child: Padding(
                                   padding: const EdgeInsets.only(right: 8),
@@ -257,11 +255,11 @@ class _HomePageState extends State<HomePage> {
                         ? Padding(
                             padding: const EdgeInsets.only(top: 20),
                             child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 420),
+                              constraints:
+                                  const BoxConstraints(maxWidth: 420),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                ),
+                                    horizontal: 24),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 16,
@@ -302,14 +300,33 @@ class _HomePageState extends State<HomePage> {
                                         ),
                                       ),
                                       if (_shortUrl != null)
-                                        Text(
-                                          'Copied!',
-                                          style: TextStyle(
-                                            fontSize: 11.5,
-                                            color: const Color(
-                                              0xFF833AB4,
-                                            ).withOpacity(0.7),
-                                            fontWeight: FontWeight.w500,
+                                        GestureDetector(
+                                          onTap: () async {
+                                            try {
+                                              await Clipboard.setData(
+                                                ClipboardData(
+                                                    text: _shortUrl!),
+                                              );
+                                              setState(() => _copied = true);
+                                              Future.delayed(
+                                                const Duration(seconds: 2),
+                                                () {
+                                                  if (mounted) {
+                                                    setState(
+                                                        () => _copied = false);
+                                                  }
+                                                },
+                                              );
+                                            } catch (_) {}
+                                          },
+                                          child: Text(
+                                            _copied ? 'Copied!' : 'Copy',
+                                            style: TextStyle(
+                                              fontSize: 11.5,
+                                              color: const Color(0xFF833AB4)
+                                                  .withOpacity(0.7),
+                                              fontWeight: FontWeight.w500,
+                                            ),
                                           ),
                                         ),
                                     ],
